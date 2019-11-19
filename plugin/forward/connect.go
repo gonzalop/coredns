@@ -43,6 +43,8 @@ func (t *Transport) updateDialTimeout(newDialTime time.Duration) {
 	averageTimeout(&t.avgDialTime, newDialTime, cumulativeAvgWeight)
 }
 
+type connectError error
+
 // Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
 func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	// If tls has been configured; use it.
@@ -62,11 +64,11 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	if proto == "tcp-tls" {
 		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
 		t.updateDialTimeout(time.Since(reqTime))
-		return &persistConn{c: conn}, false, err
+		return &persistConn{c: conn}, false, connectError(err)
 	}
 	conn, err := dns.DialTimeout(proto, t.addr, timeout)
 	t.updateDialTimeout(time.Since(reqTime))
-	return &persistConn{c: conn}, false, err
+	return &persistConn{c: conn}, false, connectError(err)
 }
 
 // Connect selects an upstream, sends the request and waits for a response.
@@ -85,7 +87,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 
 	pc, cached, err := p.transport.Dial(proto)
 	if err != nil {
-		return nil, err
+		return nil, connectError(err)
 	}
 
 	// Set buffer size correctly for this client.

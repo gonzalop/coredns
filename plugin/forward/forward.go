@@ -125,7 +125,10 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 		taperr := toDnstap(ctx, proxy.addr, f, state, ret, start)
 
-		upstreamErr = err
+		var ce connectError
+		if !errors.As(err, &ce) {
+			upstreamErr = err
+		}
 
 		if err != nil {
 			// Kick off health check to see if *our* upstream is broken.
